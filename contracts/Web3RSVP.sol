@@ -72,7 +72,7 @@ contract Web3RSVP {
                 require(myEvent.confirmedRSVPs[i] != msg.sender, "ALREADY CONFIRMED");
             }
 
-            myEvent.confirmedRSVPs.push(payable(msg.sender));
+            myEvent.confirmedRSVPs.push(payable(msg.sender)); // did not understand the meaning of payable(msg.sender) 
 
         } 
         // msg is special variables available to all functions-contains info about the transaction that is calling the function. msg.value gives the Ethers sent. 
