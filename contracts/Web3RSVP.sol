@@ -15,7 +15,9 @@ contract Web3RSVP {
    }
 
    mapping(bytes32 => CreateEvent) public idToEvent; //mapping is like hastable. bytes32 is datatype of key and CreateEvent is datatype of value, view is publis, idToEvent is the name of dictionary
+   //idToEvent is also a state variable and gets pre allocated in storage, not in memory
    
+   // createNewEvent function below gets called from front end when users click button for creating new event 
    function createNewEvent(uint256 eventTimestamp,  
     uint256 deposit, 
     uint256 maxCapacity, 
@@ -48,4 +50,32 @@ contract Web3RSVP {
         );
 
     } 
+
+    function createNewRSVP(bytes32 eventId) external payable { //payable means this function handles Ethers and most likely to change the state of the smart contract
+            // look up event from our mapping
+            CreateEvent storage myEvent = idToEvent[eventId];
+
+            // transfer deposit to our contract / require that they send in enough ETH to cover the deposit requirement of this specific event
+            require(msg.value == myEvent.deposit, "NOT ENOUGH");
+
+            // require that the event hasn't already happened (<eventTimestamp)
+            require(block.timestamp <= myEvent.eventTimestamp, "ALREADY HAPPENED");
+
+            // make sure event is under max capacity
+            require(
+                myEvent.confirmedRSVPs.length < myEvent.maxCapacity,
+                "This event has reached capacity"
+            );
+
+            // require that msg.sender isn't already in myEvent.confirmedRSVPs AKA hasn't already RSVP'd
+            for (uint8 i = 0; i < myEvent.confirmedRSVPs.length; i++) {
+                require(myEvent.confirmedRSVPs[i] != msg.sender, "ALREADY CONFIRMED");
+            }
+
+            myEvent.confirmedRSVPs.push(payable(msg.sender));
+
+        } 
+        // msg is special variables available to all functions-contains info about the transaction that is calling the function. msg.value gives the Ethers sent. 
+        //block is special variable that is available to all functions which contains info of the blocj where the transaction is executed in.block.timestamp gives the timestamp of the block that the transaction is executed in 
+
 }
