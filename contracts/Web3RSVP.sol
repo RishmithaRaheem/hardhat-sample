@@ -77,9 +77,9 @@ contract Web3RSVP {
         } 
         // msg is special variables available to all functions-contains info about the transaction that is calling the function. msg.value gives the Ethers sent. 
         //block is special variable that is available to all functions which contains info of the blocj where the transaction is executed in.block.timestamp gives the timestamp of the block that the transaction is executed in 
-
         
-        function confirmAttendee(bytes32 eventId, address attendee) public {
+        
+        function confirmAttendee(bytes32 eventId, address attendee) public { //pays the attendee if they ahve RSVP'd already and now checked in, and then add them to the claimedRSVPs list 
             // look up event from our struct using the eventId
             CreateEvent storage myEvent = idToEvent[eventId];
 
@@ -119,5 +119,58 @@ contract Web3RSVP {
 
             require(sent, "Failed to send Ether");
         }
+
+        function confirmAllAttendees(bytes32 eventId) external {
+            // look up event from our struct with the eventId
+            CreateEvent memory myEvent = idToEvent[eventId];
+
+            // make sure you require that msg.sender is the owner of the event
+            require(msg.sender == myEvent.eventOwner, "NOT AUTHORIZED");
+
+            // confirm each attendee in the rsvp array
+            for (uint8 i = 0; i < myEvent.confirmedRSVPs.length; i++) {
+                confirmAttendee(eventId, myEvent.confirmedRSVPs[i]); //confirmedRSVPs contains the list of addresses of accounts that have RSVPd to attend the event 
+            }
+        }
+
+        //withdraw unclaimed deposits post 7 days after the event was over and return back to th event organizer 
+
+        function withdrawUnclaimedDeposits(bytes32 eventId) external {
+                // look up event
+                CreateEvent memory myEvent = idToEvent[eventId];
+
+                // check that the paidOut boolean still equals false AKA the money hasn't already been paid out
+                require(!myEvent.paidOut, "ALREADY PAID");
+
+                // check if it's been 7 days past myEvent.eventTimestamp
+                require(
+                    block.timestamp >= (myEvent.eventTimestamp + 7 days),
+                    "TOO EARLY"
+                );
+
+                // only the event owner can withdraw
+                require(msg.sender == myEvent.eventOwner, "MUST BE EVENT OWNER");
+
+                // calculate how many people didn't claim by comparing
+                uint256 unclaimed = myEvent.confirmedRSVPs.length - myEvent.claimedRSVPs.length;
+
+                uint256 payout = unclaimed * myEvent.deposit;
+
+                // mark as paid before sending to avoid reentrancy attack
+                myEvent.paidOut = true;
+
+                // send the payout to the owner
+                (bool sent, ) = msg.sender.call{value: payout}("");
+
+                // if this fails
+                if (!sent) {
+                    myEvent.paidOut = false;
+                }
+
+                require(sent, "Failed to send Ether");
+
+        }
+
+
 
 }
