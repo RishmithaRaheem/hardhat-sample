@@ -2,6 +2,23 @@
 pragma solidity ^0.8.4;
 
 contract Web3RSVP {
+        //defining events - from here 
+        event NewEventCreated( 
+            bytes32 eventID,
+            address creatorAddress,
+            uint256 eventTimestamp,
+            uint256 maxCapacity,
+            uint256 deposit,
+            string eventDataCID
+        );
+
+    event NewRSVP(bytes32 eventID, address attendeeAddress);
+
+    event ConfirmedAttendee(bytes32 eventID, address attendeeAddress);
+
+    event DepositsPaidOut(bytes32 eventID);
+    //defining events till here 
+
     struct CreateEvent {  // state varaible and hence preallocated in storage 
         bytes32 eventId;
         string eventDataCID;
@@ -48,6 +65,14 @@ contract Web3RSVP {
             claimedRSVPs,
             false
         );
+        emit NewEventCreated( 
+            eventId,
+            msg.sender,
+            eventTimestamp,
+            maxCapacity,
+            deposit,
+            eventDataCID
+        ); //once all steps in this function are over, we emit this event to store it in logs and for subgraph to listen
 
     } 
 
@@ -72,14 +97,16 @@ contract Web3RSVP {
                 require(myEvent.confirmedRSVPs[i] != msg.sender, "ALREADY CONFIRMED");
             }
 
-            myEvent.confirmedRSVPs.push(payable(msg.sender)); // did not understand the meaning of payable(msg.sender) 
+            myEvent.confirmedRSVPs.push(payable(msg.sender)); // payable(msg.sender) takes the ethers sent in the transation by the sender and adds it to our smart contract
 
+        // The payable() function ensures that the ethers that were sent with the transaction are transferred to the smart contract when the sender's address is added to the list of confirmed RSVPs for the event.
+            emit NewRSVP(eventId, msg.sender); //once all steps in this function are over, we emit this event to store it in logs and for subgraph to listen
         } 
         // msg is special variables available to all functions-contains info about the transaction that is calling the function. msg.value gives the Ethers sent. 
         //block is special variable that is available to all functions which contains info of the blocj where the transaction is executed in.block.timestamp gives the timestamp of the block that the transaction is executed in 
         
         
-        function confirmAttendee(bytes32 eventId, address attendee) public { //pays the attendee if they ahve RSVP'd already and now checked in, and then add them to the claimedRSVPs list 
+        function confirmAttendee(bytes32 eventId, address attendee) public payable { //pays the attendee if they have RSVP'd already and now checked in, and then add them to the claimedRSVPs list 
             // look up event from our struct using the eventId
             CreateEvent storage myEvent = idToEvent[eventId];
 
@@ -118,6 +145,8 @@ contract Web3RSVP {
             }
 
             require(sent, "Failed to send Ether");
+
+            emit ConfirmedAttendee(eventId, attendee);
         }
 
         function confirmAllAttendees(bytes32 eventId) external {
@@ -135,7 +164,7 @@ contract Web3RSVP {
 
         //withdraw unclaimed deposits post 7 days after the event was over and return back to th event organizer 
 
-        function withdrawUnclaimedDeposits(bytes32 eventId) external {
+        function withdrawUnclaimedDeposits(bytes32 eventId) external payable {
                 // look up event
                 CreateEvent memory myEvent = idToEvent[eventId];
 
@@ -169,8 +198,9 @@ contract Web3RSVP {
 
                 require(sent, "Failed to send Ether");
 
-        }
+                emit DepositsPaidOut(eventId);
 
+        }
 
 
 }
